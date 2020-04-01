@@ -1,20 +1,4 @@
 # -*- coding: UTF-8 -*-
-
-import numpy as np
-import pandas as pd
-import random
-import matplotlib.pyplot as plt
-import multiprocessing
-import pickle
-from sklearn.datasets import make_blobs, make_moons, make_circles
-from matplotlib import pyplot
-from pandas import DataFrame
-
-from deap import base
-from deap import creator
-from deap import tools
-from deap import algorithms
-
 import rpy2.robjects as robjects
 
 from rpy2.robjects import pandas2ri
