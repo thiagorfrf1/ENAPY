@@ -1044,6 +1044,1032 @@ ena_generate = """
 #   }
 # }
 """
+ena_get_stats = """
+##
+# @title Generate ENA Set
+# @description Generate an ENA set from a givent ENA data object
+#
+#
+#
+# @export
+##
+ena.get.stats <- function(
+
+) {
+
+}
+"""
+ena_group = """
+##
+#' @title Compute summary statistic for groupings of units using given method (typically, mean)
+#'
+#' @description Computes summary statistics for groupings (given as vector) of units in ena data using given method (typically, mean); computes summary statistic for point locations and edge weights for each grouping
+#'
+#' @export
+#'
+#' @param enaset An \code{\link{ENAset}} or a vector of values to group.
+#' @param by A vector of values the same length as units. Uses rotated points for group positions and normed data to get the group edge weights
+#' @param method A function that is used on grouped points. Default: mean().  If `enaset` is an ENAset, enaset$points.rotated will be groups using `mean` regardless of `method` provided
+#'
+#' @examples
+#' data(RS.data)
+#'
+#' codeNames = c('Data','Technical.Constraints','Performance.Parameters',
+#'   'Client.and.Consultant.Requests','Design.Reasoning','Collaboration');
+#'
+#' accum = ena.accumulate.data(
+#'   units = RS.data[,c("UserName","Condition")],
+#'   conversation = RS.data[,c("Condition","GroupName")],
+#'   metadata = RS.data[,c("CONFIDENCE.Change","CONFIDENCE.Pre","CONFIDENCE.Post")],
+#'   codes = RS.data[,codeNames],
+#'   window.size.back = 4
+#' )
+#'
+#' set = ena.make.set(
+#'   enadata = accum
+#' )
+#'
+#' means = ena.group(set, by=accum$metadata$Condition)
+#'
+#'
+#' @return A list containing names, points, and edge weights for each of the unique groups formed by the function
+##
+ena.group <- function(
+  enaset = NULL,   #ENAset object to form groups from
+  by = NULL, #Vector of values  the same length as units.
+  method = mean  #method by which to form groups from specified attribute/vector of values
+) {
+  run.method = function(pts, m = method) {
+    points.dt = data.table::data.table(pts);
+    if(is.logical(by)) {
+      points.dt.means = points.dt[by, lapply(.SD, m),]; # by=by];
+    } else if(all(by %in% colnames(pts))) {
+      points.dt.means = points.dt[, lapply(.SD, m), by=by];
+    } else {
+      points.dt.means = as.data.frame(aggregate(points.dt, by = list(by), FUN = m)) #"mean"))
+      rownames(points.dt.means) = points.dt.means$Group.1
+      points.dt.means = points.dt.means[,colnames(points.dt)]
+      # agg.df[as.vector(unique(group.by)),]u
+      # return (points.dt.means[as.vector(unique(by)),]);
+      points.dt.means[['ENA_GROUP_NAME']] = rownames(points.dt.means)
+      return(points.dt.means[which(rownames(points.dt.means) %in% unique(by)),])
+    }
+    return(as.data.frame(points.dt.means[,colnames(points.dt),with=F]))
+  }
+
+  if(is.character(method)) {
+    method = get(method)
+  }
+
+  if("ENAset" %in% class(enaset)) {
+    return(list(
+      "names" = as.vector(unique(by)),
+      "points" = run.method(enaset$points.rotated, m = mean),
+      "line.weights" = run.method(enaset$line.weights)
+    ));
+  } else {
+    return(run.method(enaset))
+  }
+}
+"""
+ena_make_set = """
+##
+#' @title Generate ENA Set
+#'
+#' @description Generates an ENA model by constructing a dimensional reduction of adjacency (co-occurrence) vectors in an ENA data object
+#'
+#' @details This function generates an ENAset object from an ENAdata object. Takes
+#' the adjacency (co-occurrence) vectors from enadata, computes a dimensional
+#' reduction (projection), and calculates node positions in the projected ENA
+#' space. Returns location of the units in the projected space, as well as
+#' locations for node positions, and normalized adjacency (co-occurrence) vectors
+#' to construct network graphs
+#'
+#' @export
+#'
+#' @param enadata \code{\link{ENAdata}} that will be used to generate an ENA model
+#' @param dimensions The number of dimensions to include in the dimensional reduction
+#' @param norm.by A function to be used to normalize adjacency (co-occurrence) vectors before computing the dimensional reduction, default: sphere_norm_c()
+#' @param rotation.by	A function to be used to compute the dimensional reduction, default: ena.svd()
+#' @param rotation.params (optional) A character vector containing additional parameters for the function in rotation.by, if needed
+#' @param rotation.set A previously-constructed  ENARotationSet object to use for the dimensional reduction
+#' @param endpoints.only A logical variable which determines whether to only show endpoints for trajectory models
+#' @param node.position.method A function to be used to determine node positions based on the dimensional reduction, default: lws.position.es()
+#' @param as.list R6 objects will be deprecated, but if this is TRUE, the original R6 object will be returned, otherwise a list with class `ena.set`
+#' @param ... additional parameters addressed in inner function
+#'
+#' @examples
+#' data(RS.data)
+#'
+#' codeNames = c('Data','Technical.Constraints','Performance.Parameters',
+#'   'Client.and.Consultant.Requests','Design.Reasoning','Collaboration');
+#'
+#' accum = ena.accumulate.data(
+#'   units = RS.data[,c("UserName","Condition")],
+#'   conversation = RS.data[,c("Condition","GroupName")],
+#'   metadata = RS.data[,c("CONFIDENCE.Change","CONFIDENCE.Pre","CONFIDENCE.Post")],
+#'   codes = RS.data[,codeNames],
+#'   window.size.back = 4
+#' )
+#'
+#' set = ena.make.set(
+#'   enadata = accum
+#' )
+#'
+#' set.means.rotated = ena.make.set(
+#'   enadata = accum,
+#'   rotation.by = ena.rotate.by.mean,
+#'   rotation.params = list(
+#'       accum$meta.data$Condition=="FirstGame",
+#'       accum$meta.data$Condition=="SecondGame"
+#'   )
+#' )
+#'
+#' @seealso \code{\link{ena.accumulate.data}}, \code{\link{ENAset}}
+#'
+#' @return \code{\link{ENAset}} class object that can be further processed for analysis or plotting
+##
+ena.make.set <- function(
+  enadata,
+  dimensions = 2,
+  norm.by = fun_sphere_norm,
+  rotation.by = ena.svd,
+  rotation.params = NULL,
+  rotation.set = NULL,
+  endpoints.only = T,
+  node.position.method = lws.positions.sq,
+  as.list = TRUE,
+  ...
+) {
+  if (as.list == F) {
+    warning(paste0("Usage of ENAdata and ENAset objects will be deprecated ",
+      "and potentially removed altogether in future versions."))
+
+    if (!is(enadata, "ENAdata")) {
+      stop(paste0("Use of ena.make.set with as.list=FALSE requires `enadata` ",
+        "be an ENAdata object. Re-run the accumulation with as.list=FALSE"))
+    }
+
+    set <- ENAset$new(
+      enadata = enadata,
+      dimensions = dimensions,
+      rotation.by = ifelse(
+        identical(rotation.by, ena.svd),
+        ena.svd.R6,
+        rotation.by
+      ),
+      rotation.params = rotation.params,
+      rotation.set = rotation.set,
+      norm.by = norm.by,
+      node.position.method = ifelse(
+        identical(node.position.method, lws.positions.sq),
+        lws.positions.sq.R6,
+        node.position.method
+      ),
+      endpoints.only = endpoints.only,
+      ...
+    )
+    return(set$process());
+  }
+  else {
+    if ("ENAdata" %in% class(enadata)) {
+      warning(paste0("Usage of ENAdata objects will be deprecated and ",
+        "potentially removed altogether in future versions. See ",
+        "ena.accumulate.data() or ena.set()."))
+
+      enadata <- ena.set(enadata)
+    }
+
+    ###
+    # Convert the string vector of code names to their corresponding
+    # co-occurence names
+    #####
+      code_columns <- svector_to_ut(enadata$rotation$codes)
+
+    ###
+    # Normalize the raw data using self$function.params$norm.by,
+    # which defaults to calling rENA::dont_sphere_norm_c
+    #####
+      line.weights <- norm.by(as.matrix(enadata$connection.counts))
+      colnames(line.weights) <- code_columns
+
+      line.weights.dt <- as.data.table(line.weights)
+      for (i in seq(ncol(line.weights.dt)))
+        set(line.weights.dt, j = i,
+            value = as.ena.co.occurrence(line.weights.dt[[i]]))
+
+      enadata$line.weights <- cbind(enadata$meta.data, line.weights.dt)
+      class(enadata$line.weights) <- c("ena.line.weights",
+                                      class(enadata$line.weights))
+    #####
+
+    ###
+    # Center the normed data
+    #####
+      points.for.projection <- center_data_c(line.weights)
+      colnames(points.for.projection) <- code_columns;
+      enadata$model$points.for.projection = as.data.table(points.for.projection)
+      for (i in seq(ncol(enadata$model$points.for.projection))) {
+        set(
+          enadata$model$points.for.projection,
+          j = i,
+          value = as.ena.co.occurrence(enadata$model$points.for.projection[[i]])
+        )
+      }
+      enadata$model$points.for.projection <- as.ena.matrix(cbind(
+        enadata$meta.data,
+        enadata$model$points.for.projection
+      ), "ena.points")
+    #####
+
+    ###
+
+    ###
+    # Generate and Assign the rotation set
+    #####
+      if (!is.null(rotation.by) && is.null(rotation.set)) {
+        rotation <- do.call(rotation.by, list(enadata, rotation.params))
+
+        enadata$rotation.matrix <- as.data.table(rotation$rotation, keep.rownames = "codes")
+        for (i in seq(ncol(enadata$rotation.matrix))) {
+          if(i == 1) {
+            set(enadata$rotation.matrix,
+                j = i, value = as.ena.metadata(enadata$rotation.matrix[[i]])
+            )
+          } else {
+            set(enadata$rotation.matrix,
+                j = i, value = as.ena.dimension(enadata$rotation.matrix[[i]])
+            )
+          }
+        }
+        class(enadata$rotation.matrix) <- c("ena.rotation.matrix", class(enadata$rotation.matrix))
+
+        enadata$rotation$rotation.matrix <- enadata$rotation.matrix
+        enadata$rotation$eigenvalues <- rotation$eigenvalues;
+      }
+      else if (!is.null(rotation.set)) {
+        if (is(rotation.set, "ena.rotation.set")) {
+          enadata$rotation.matrix <- rotation.set$rotation.matrix
+          enadata$rotation$rotation.matrix <- rotation.set$rotation.matrix
+          enadata$rotation$nodes <- rotation.set$nodes;
+          enadata$rotation$eigenvalues <- rotation.set$eigenvalues
+        } else {
+          stop("Supplied rotation.set is not an instance of ENARotationSet")
+        }
+      }
+      else {
+        stop("Unable to find or create a rotation set")
+      }
+    #####
+
+    ###
+    # Generate the rotated points
+    #####
+      if (!is.null(enadata$rotation.matrix)) {
+        points <- points.for.projection %*% as.matrix(enadata$rotation.matrix)
+        points.dt <- as.data.table(points)
+        for (i in seq(ncol(points.dt))) {
+          set(points.dt, j = i, value = as.ena.dimension(points.dt[[i]]))
+        }
+        if(grepl(x = enadata$model$model.type, pattern = "Trajectory")) {
+          enadata$points <- cbind(enadata$trajectories, points.dt)
+        }
+        else {
+          enadata$points <- cbind(enadata$meta.data, points.dt)
+        }
+        enadata$points <- as.ena.matrix(enadata$points, "ena.points")
+      }
+      else {
+        stop(paste0("There is no rotation matrix, if you supplied a custom ",
+          "rotation.set, be sure it contains a rotation.matrix"))
+      }
+    #####
+
+    ###
+    # Calculate node positions
+    #  - The supplied methoed is responsible is expected to return a list
+    #    with two keys, "node.positions" and "centroids"
+    #####
+      if (exists("rotation") && !is.null(rotation) && is.null(rotation.set)) {
+        positions <- node.position.method(enadata)
+
+        if (all(names(positions) %in% c("node.positions", "centroids"))) {
+          enadata$rotation$nodes <- as.data.table(positions$node.positions)
+          colnames(enadata$rotation$nodes) <- colnames(points)
+          rownames(enadata$rotation$nodes) <- enadata$rotation$codes
+
+          for (i in seq(ncol(enadata$rotation$nodes))) {
+            set(enadata$rotation$nodes, j = i,
+                  value = as.ena.dimension(enadata$rotation$nodes[[i]]))
+          }
+          enadata$rotation$nodes <- data.table(
+            code = structure(enadata$rotation$codes,
+                      class = c("code", class(enadata$rotation$codes))),
+            enadata$rotation$nodes
+          )
+          class(enadata$rotation$nodes) = c("ena.nodes",
+                                            class(enadata$rotation$nodes))
+
+          enadata$model$centroids <- as.data.table(positions$centroids)
+          for (i in seq(ncol(enadata$model$centroids))) {
+            set(enadata$model$centroids, j = i,
+              value = as.ena.dimension(enadata$model$centroids[[i]])
+            )
+          }
+          colnames(enadata$model$centroids) <- colnames(as.matrix(enadata$rotation.matrix))
+          enadata$model$centroids = cbind(
+            data.table(unit = enadata$model$unit.labels),
+            enadata$model$centroids
+          )
+          set(enadata$model$centroids, j = 1L,
+            value = as.ena.metadata(enadata$model$centroids[[1L]])
+          )
+          enadata$model$centroids <- as.ena.matrix(enadata$model$centroids)
+        }
+        else {
+          stop(paste0("The node position method didn't return back the ",
+            "expected objects:\n",
+            "\tExpected: c('node.positions','centroids')\n",
+            "\tReceived: ", names(positions), sep = ""))
+        }
+      } else if (!is.null(rotation.set)) {
+        enadata$rotation$nodes <- rotation.set$nodes
+      }
+
+      if (is.null(enadata$rotation$nodes)) {
+        stop("Unable to determine the node positions either by calculating
+                    them using `node.position.method` or using a supplied
+                    `rotation.set`")
+      }
+    #####
+
+    ###
+    # Variance
+    #####
+      var_rot_data <- var(points)
+      diagonal_variance <- as.vector(diag(var_rot_data))
+      enadata$model$variance <- diagonal_variance / sum(diagonal_variance)
+      names(enadata$model$variance) <- colnames(enadata$rotation$rotation.matrix)[-1]
+    #####
+
+    enadata$plots <- list() #default = ena.plot(enadata, ...))
+    # class(enadata$model$plot) <- c("ena.plot", class(enadata$model$plot))
+
+    enadata$`_function.params`$norm.by <- norm.by
+
+    return(enadata)
+  }
+}
+"""
+ena_optimize_set = """
+##
+# @title Generate ENA Set
+# @description Generate an ENA set from a givent ENA data object
+#
+#
+#
+# @export
+##
+ena.optimize.set <- function(
+
+) {
+
+}
+"""
+ena_plot_group = """
+##
+#' @title Plot of ENA set groups
+#'
+#' @description Plot a point based on a summary statistic computed from a given method (typically, mean) for a set of points in a projected ENA space
+#'
+#' @details Plots a point based on a summary statistic for a group (typically, mean)
+#'
+#' @export
+#'
+#' @param enaplot \code{\link{ENAplot}} object to use for plotting
+#' @param points A matrix or data.frame where columns contain coordinates of points in a projected ENA space
+#' @param method A function for computing a summary statistic for each column of points
+#' @param labels A character which will be the label for the group's point
+#' @param colors A character, determines color of the group's point, default: enaplot$color
+#' @param shape A character, determines shape of the group's point, choices:  square, triangle, diamond, circle, default: square
+#' @param confidence.interval A character that determines how the confidence interval is displayed, choices: none, box, crosshair, default: none
+#' @param outlier.interval A character that determines how outlier interval is displayed, choices: none, box, crosshair, default: none
+#' @param label.offset character: top left (default), top center, top right, middle left, middle center, middle right, bottom left, bottom center, bottom right
+#' @param label.font.size An integer which determines the font size for label, default: enaplot\$font.size
+#' @param label.font.color A character which determines the color of label, default: enaplot\$font.color
+#' @param label.font.family A character which determines font type, choices: Arial, Courier New, Times New Roman, default: enaplot\$font.family
+#' @param show.legend Logical indicating whether to show the point labels in the in legend
+#' @param legend.name Character indicating the name to show above the plot legend
+#' @param ... Additional parameters
+#'
+#' @import magrittr
+#'
+#' @seealso \code{\link{ena.plot}}, \code{ena.plot.points}
+#'
+#' @examples
+#' data(RS.data)
+#'
+#' codeNames = c('Data','Technical.Constraints','Performance.Parameters',
+#'   'Client.and.Consultant.Requests','Design.Reasoning','Collaboration');
+#'
+#' accum = ena.accumulate.data(
+#'   units = RS.data[,c("UserName","Condition")],
+#'   conversation = RS.data[,c("Condition","GroupName")],
+#'   metadata = RS.data[,c("CONFIDENCE.Change","CONFIDENCE.Pre","CONFIDENCE.Post")],
+#'   codes = RS.data[,codeNames],
+#'   window.size.back = 4
+#' )
+#'
+#' set = ena.make.set(
+#'   enadata = accum,
+#'   rotation.by = ena.rotate.by.mean,
+#'   rotation.params = list(
+#'       accum$meta.data$Condition=="FirstGame",
+#'       accum$meta.data$Condition=="SecondGame"
+#'   )
+#' )
+#'
+#' plot = ena.plot(set)
+#'
+#' unitNames = set$enadata$units
+#'
+#' ### Plot Condition 1 Group Mean
+#' plot = ena.plot.group(plot, as.matrix(set$points$Condition$FirstGame), labels = "FirstGame",
+#'     colors = "red", confidence.interval = "box")
+#'
+#' ### plot Condition 2 Group Mean
+#' plot = ena.plot.group(plot, as.matrix(set$points$Condition$SecondGame), labels = "SecondGame",
+#'     colors  = "blue", confidence.interval = "box")
+#'
+#' print(plot);
+#'
+#' @return The  \code{\link{ENAplot}} provided to the function, with its plot updated to include the new group point.
+##
+ena.plot.group <- function(
+  enaplot,
+  points = NULL,
+  method = "mean",
+  labels = NULL,
+  colors = default.colors[1],
+  shape = c("square", "triangle-up", "diamond", "circle"),
+  confidence.interval = c("none", "crosshairs", "box"),
+  outlier.interval = c("none", "crosshairs", "box"),
+  label.offset = "bottom right",
+  label.font.size = NULL,
+  label.font.color = NULL,
+  label.font.family = NULL,
+  show.legend = T,
+  legend.name = NULL,
+  ...
+) {
+  shape = match.arg(shape);
+  confidence.interval = match.arg(confidence.interval);
+  outlier.interval = match.arg(outlier.interval);
+
+  if(is.null(points)) {
+    stop("Points must be provided.");
+  } else if(is(points, "ena.points")) {
+    points = remove_meta_data(points)
+  }
+
+  ### problem if outlier and confidence intervals selected for crosshair
+  if(confidence.interval == "crosshairs" && outlier.interval == "crosshairs") {
+    print("Confidence Interval and Outlier Interval cannot both be crosshair");
+    print("Plotting Outlier Interval as box");
+    outlier.interval = "box";
+  }
+
+  ### if group more than one row, combine to mean
+  confidence.interval.values = NULL;
+  outlier.interval.values = NULL;
+  if(
+    (is(points, "data.frame") || is(points, "matrix")) &&
+    nrow(points) > 1
+  ) {
+    if(is.null(method) || method == "mean") {
+      if(confidence.interval != "none") {
+        confidence.interval.values = matrix(
+          c(as.vector(t.test(points[,1], conf.level = 0.95)$conf.int), as.vector(t.test(points[,2], conf.level = 0.95)$conf.int)),
+          ncol=2
+        );
+      }
+      if(outlier.interval != "none") {
+        outlier.interval.values = c(IQR(points[,1]), IQR(points[,2])) * 1.5;
+      }
+
+      if(length(unique(colors)) > 1) {
+        points = t(sapply(unique(colors), function(color) colMeans(points[color == colors,]), simplify = T))
+        colors = unique(colors)
+        attr(enaplot, "means") <- length(attr(enaplot, "means")) + length(colors)
+      } else {
+        points = colMeans(points);
+        attr(enaplot, "means") <- length(attr(enaplot, "means")) + 1
+      }
+    }
+    else {
+      if(confidence.interval != "none") warning("Confidence Intervals can only be used when method=`mean`")
+      if(outlier.interval != "none") warning("Outlier Intervals can only be used when method=`mean`")
+
+      points = apply(points, 2, function(x) do.call(method, list(x)) )
+      attr(enaplot, "means") <- length(attr(enaplot, "means")) + 1
+    }
+  }
+
+  enaplot %<>% ena.plot.points(
+    points = points,
+    labels = labels,
+    colors = colors,
+    shape = shape,
+    confidence.interval = confidence.interval,
+    confidence.interval.values = confidence.interval.values,
+    outlier.interval = outlier.interval,
+    outlier.interval.values = outlier.interval.values,
+    label.offset = label.offset,
+    label.font.size = label.font.size,
+    label.font.color = label.font.color,
+    label.font.family = label.font.family,
+    show.legend = show.legend,
+    legend.name = legend.name,
+    ...
+  )
+  return(enaplot)
+
+  #
+  # group.layout = data.frame(dfDT.points);
+  #
+  # ### INTERVAL CALCULATIONS
+  # error = NULL;
+  # lines = list();
+  #
+  # if(confidence.interval == "crosshair") {
+  #   ci.x = t.test(points.raw, conf.level = .95)$conf.int[1];
+  #   ci.y = t.test(points.raw, conf.level = .95)$conf.int[2];
+  #   error = list(
+  #     x = list(type = "data", array = ci.x),
+  #     y = list(type = "data", array = ci.y)
+  #   )
+  # } else if(outlier.interval == "crosshair") {
+  #   oi.x = IQR(points.raw$V1) * 1.5;
+  #   oi.y = IQR(points.raw$V2) * 1.5;
+  #   error = list(
+  #     x = list(type = "data", array = oi.x),
+  #     y = list(type = "data", array = oi.y)
+  #   )
+  # }
+  #
+  # if(confidence.interval == "box") {
+  #
+  #   conf.ints = t.test(points.raw, conf.level = .95)$conf.int;
+  #   dfDT.points[,c("ci.x", "ci.y") := .(conf.ints[1], conf.ints[2])]
+  #
+  #   #add cols for coordinates of CI lines
+  #   dfDT.points[, c("ci.x1", "ci.x2", "ci.y1", "ci.y2") := .(V1 - ci.x, V1 + ci.x, V2 - ci.y, V2 + ci.y)]
+  #
+  #   lines.CI = apply(dfDT.points,1,function(x) {
+  #     list(
+  #       "type" = "square",
+  #       "line" = list(
+  #         width = 1,
+  #         color = color,
+  #         dash="dash"
+  #       ),
+  #       "xref" = "x",
+  #       "yref" = "y",
+  #       "x0" = x[['ci.x1']],
+  #       "x1" = x[['ci.x2']],
+  #       "y0" = x[['ci.y1']],
+  #       "y1" = x[['ci.y2']]
+  #     );
+  #   });
+  #   lines = lines.CI;
+  # }
+  # if(outlier.interval == "box") {
+  #
+  #   oi.x = IQR(points.raw$V1) * 1.5;
+  #   oi.y = IQR(points.raw$V2) * 1.5;
+  #
+  #   dfDT.points[,c("oi.x", "oi.y") := .(oi.x, oi.y)]
+  #
+  #   #add cols for coordinates of CI lines
+  #   dfDT.points[, c("oi.x1", "oi.x2", "oi.y1", "oi.y2") := .(V1 - oi.x, V1 + oi.x, V2 - oi.y, V2 + oi.y)]
+  #
+  #   lines.OI = apply(dfDT.points,1,function(x) {
+  #     list(
+  #       "type" = "square",
+  #       "line" = list(
+  #         width = 1,
+  #         color = color,
+  #         dash="dash"
+  #       ),
+  #       "xref" = "x",
+  #       "yref" = "y",
+  #       "x0" = x[['oi.x1']],
+  #       "x1" = x[['oi.x2']],
+  #       "y0" = x[['oi.y1']],
+  #       "y1" = x[['oi.y2']]
+  #     );
+  #   });
+  #
+  #   lines = c(lines, lines.OI);
+  # }
+  #
+  #
+  # if(!is.null(error)) {
+  #   #plot group w/ crosshair error bars
+  #   enaplot$plot = plotly::add_trace(
+  #     enaplot$plot,
+  #     data = group.layout,
+  #     type="scatter",
+  #     x = ~V1, y = ~V2,
+  #     mode="markers",
+  #     marker = list(
+  #       symbol =  shape,
+  #       color = color,
+  #       size = size
+  #     ),
+  #     error_x = error$x,
+  #     error_y = error$y,
+  #     showlegend = F,
+  #     text = label,
+  #     hoverinfo = "text+x+y"
+  #   )
+  # } else {
+  #   #plot group w/o crosshair error bars
+  #   enaplot$plot = plotly::add_trace(
+  #     enaplot$plot,
+  #     data = group.layout,
+  #     type="scatter",
+  #     x = ~V1, y = ~V2,
+  #     mode="markers",
+  #     marker = list(
+  #       symbol =  shape,  #c(rep("circle",nrow(data)),rep("square", ifelse(!is.null(dfDT.groups), nrow(dfDT.groups), 0))),
+  #       color = color,
+  #       #size = c(rep(unit.size * unit.size.multiplier, nrow(data)), rep(group.size, ifelse(!is.null(dfDT.groups),nrow(dfDT.groups), 0)))
+  #       size = size
+  #     ),
+  #     showlegend = F,
+  #     text = label,
+  #     hoverinfo = "text+x+y"
+  #   )
+  # }
+  #
+  # ##### WEIGHTING OFFSET
+  # if(is.null(label.offset)) { label.offset = c(.05,.05) }
+  # else label.offset = c(label.offset[1] * 0.1, label.offset[2] * 0.1)
+  #
+  # enaplot$plot = plotly::add_annotations(
+  #   enaplot$plot,
+  #   x = group.layout$V1[1] + label.offset[1],
+  #   y = group.layout$V2[1] + label.offset[2],
+  #   text = label,
+  #   font = text.info,
+  #   xref = "x",
+  #   yref = "y",
+  #   ax = label.offset[1],
+  #   ay = label.offset[2],
+  #   #xanchor = "left",
+  #   showarrow = F
+  # );
+  #
+  # enaplot$plot = plotly::layout(
+  #   enaplot$plot,
+  #   shapes = lines
+  #   #annotations = label.info
+  # )
+  #
+  # return(enaplot);
+}
+"""
+ena_plot_network = """
+##
+#' @title Plot an ENA network
+#'
+#' @description Plot an ENA network: nodes and edges
+#'
+#' @details lots a network graph, including nodes (taken from codes in the ENAplot) and the edges (provided in network)
+#'
+#' @export
+#'
+#' @param enaplot \code{\link{ENAplot}} object to use for plotting
+#' @param network dataframe or matrix containing the edge weights for the network graph; typically comes from ENAset$line.weights
+#' @param node.positions matrix containing the positiions of the nodes. Defaults to enaplot$enaset$node.positions
+#' @param adjacency.key matrix containing the adjacency key for looking up the names and positions
+#' @param colors A String or vector of colors for positive and negative line weights. E.g. red or c(pos= red, neg = blue), default: c(pos= red, neg = blue)
+#' @param edge_type A String representing the type of line to draw, either "line", "dash", or "dot"
+#' @param show.all.nodes A Logical variable, default: true
+#' @param threshold A vector of numeric min/max values, default: c(0,Inf) plotting . Edge weights below the min value will not be displayed; edge weights above the max value will be shown at the max value.
+#' @param thin.lines.in.front A logical, default: true
+#' @param thickness A vector of numeric min/max values for thickness, default:  c(min(abs(network)), max(abs(network)))
+#' @param opacity A vector of numeric min/max values for opacity, default: thickness
+#' @param saturation A vector of numeric min/max values for saturation, default: thickness
+#' @param scale.range A vector of numeric min/max to scale from, default: c(0.1,1) or if min(network) is 0, c(0,1)
+#' @param node.size A lower and upper bound used for scaling the size of the nodes, default c(0, 20)
+#' @param labels A character vector of node labels, default: code names
+#' @param label.offset A character vector of representing the positional offset relative to the respective node. Defaults to "middle right" for all nodes. If a single values is provided, it is used for all positions, else the length of the
+#' @param label.font.size An integer which determines the font size for graph labels, default: enaplot$font.size
+#' @param label.font.color A character which determines the color of label font, default: enaplot$font.color
+#' @param label.font.family A character which determines font type, choices: Arial, Courier New, Times New Roman, default: enaplot$font.family
+#' @param legend.name A character name used in the plot legend. Not included in legend when NULL (Default), if legend.include.edges is TRUE will always be "Nodes"
+#' @param legend.include.edges Logical value indicating if the edge names should be included in the plot legend. Forces legend.name to be "Nodes"
+#' @param scale.weights Logical indicating to scale the supplied network
+#' @param ... Additional parameters
+#'
+#' @seealso \code{\link{ena.plot}}, \code{\link{ena.plot.points}}
+#' @importFrom scales rescale
+
+#' @examples
+#' data(RS.data)
+#'
+#' codeNames = c('Data','Technical.Constraints','Performance.Parameters',
+#'   'Client.and.Consultant.Requests','Design.Reasoning','Collaboration');
+#'
+#' accum = ena.accumulate.data(
+#'   units = RS.data[,c("UserName","Condition")],
+#'   conversation = RS.data[,c("Condition","GroupName")],
+#'   metadata = RS.data[,c("CONFIDENCE.Change","CONFIDENCE.Pre","CONFIDENCE.Post")],
+#'   codes = RS.data[,codeNames],
+#'   window.size.back = 4
+#' )
+#'
+#' set = ena.make.set(
+#'   enadata = accum,
+#'   rotation.by = ena.rotate.by.mean,
+#'   rotation.params = list(
+#'     accum$meta.data$Condition=="FirstGame",
+#'     accum$meta.data$Condition=="SecondGame"
+#'   )
+#' )
+#'
+#' plot = ena.plot(set)
+#'
+#' ### Subset rotated points and plot Condition 1 Group Mean
+#' as.matrix(set$points$Condition$FirstGame)
+#'
+#' first.game.points = as.matrix(set$points$Condition$FirstGame)
+#' plot = ena.plot.group(plot, first.game.points, labels = "FirstGame",
+#'     colors = "red", confidence.interval = "box")
+#'
+#' ### Subset rotated points and plot Condition 2 Group Mean
+#' second.game.points = as.matrix(set$points$Condition$SecondGame)
+#' plot = ena.plot.group(plot, second.game.points, labels = "SecondGame",
+#'     colors  = "blue", confidence.interval = "box")
+#'
+#' ### get mean network plots
+#' first.game.lineweights = as.matrix(set$line.weights$Condition$FirstGame)
+#' first.game.mean = colMeans(first.game.lineweights)
+#'
+#' second.game.lineweights = as.matrix(set$line.weights$Condition$SecondGame)
+#' second.game.mean = colMeans(second.game.lineweights)
+#'
+#' subtracted.network = first.game.mean - second.game.mean
+#' plot = ena.plot.network(plot, network = subtracted.network)
+#' print(plot)
+#'
+#' @return The \code{\link{ENAplot}} provided to the function, with its plot updated to include the nodes and provided connecting lines.
+##
+ena.plot.network = function(
+  enaplot = NULL,
+  network = NULL,
+  node.positions = enaplot$enaset$rotation$nodes,
+  adjacency.key = NULL, #enaplot$enaset$enadata$adjacency.matrix,
+  colors = c(pos=enaplot$palette[1], enaplot$palette[2]),
+  edge_type = "line", #c("line", "dash", "dot"),
+  show.all.nodes = T,
+  threshold = c(0),
+  thin.lines.in.front = T,
+
+  thickness = c(min(abs(network)), max(abs(network))),
+  opacity = thickness,
+  saturation = thickness,
+  scale.range = c(ifelse(min(network)==0, 0, 0.1), 1),
+
+  node.size = c(3,10),
+
+  labels = NULL,
+  label.offset = "middle right",
+  label.font.size = enaplot$get("font.size"),
+  label.font.color = enaplot$get("font.color"),
+  label.font.family = enaplot$get("font.family"),
+  legend.name = NULL,
+  legend.include.edges = F,
+  scale.weights = T,
+  ...
+) {
+  if(choose(nrow(node.positions), 2) != length(network)) {
+    stop(paste0("Network vector needs to be of length ", choose(nrow(node.positions), 2)))
+  }
+  node.rows <- NULL
+  if(is(node.positions, "ena.nodes")) {
+    if(is.null(adjacency.key)) {
+      adjacency.key <- namesToAdjacencyKey(node.positions$code)
+    }
+    node.rows <- node.positions$code
+
+    if(is.null(labels)) {
+      labels <- node.positions$code
+    }
+  } else {
+    if(is.matrix(node.positions)) {
+      node.positions <- as.data.frame(node.positions)
+    }
+    adjacency.key <- namesToAdjacencyKey(rownames(node.positions))
+    node.rows <- rownames(node.positions)
+    if(is.null(labels)) {
+      labels  <- rownames(node.positions)
+    }
+  }
+  args = list(...);
+  network.edges.shapes = list();
+  edge_type = match.arg(arg = edge_type, choices = c("line", "dash", "dot"));
+
+  nodes = data.frame(as.matrix(node.positions));
+  colnames(nodes) = paste0("X", seq(colnames(nodes)))
+  nodes$weight = rep(0, nrow(nodes))
+  nodes$color = "black";
+
+  # Handle label parameters
+  if(length(label.offset) == 1) {
+    label.offset = rep(label.offset[1], length(labels))
+  }
+  if(length(label.offset) != length(labels)) {
+    stop("length(label.offset) must be equal to 1 or length(labels)")
+  }
+
+  # Handle legend parameters
+  if(legend.include.edges == T && !is.null(legend.name)) {
+    legend.name = "Nodes"
+  }
+
+  network.scaled = network;
+  if(!is.null(threshold)) {
+    multiplier.mask = ((network.scaled >= 0) * 1) - ((network.scaled < 0) * 1)
+    if(length(threshold) == 1) {
+      threshold[2] = Inf;
+    } else if(threshold[2] < threshold[1]) {
+      stop("Minimum threshold value must be less than the maximum value.");
+    }
+
+    if(threshold[1] > 0) {
+      # network.scaled = network.scaled[sizes > threshold[1]]
+      network.scaled[abs(network.scaled) < threshold[1]] = 0
+    }
+    if(threshold[2] < Inf && any(abs(network.scaled) > threshold[2]))  {
+      to.threshold = abs(network.scaled) > threshold[2]
+      network.scaled[to.threshold] = threshold[2]
+      network.scaled[to.threshold] = network.scaled[to.threshold] * multiplier.mask[to.threshold]
+    }
+  }
+  network.thickness = abs(network.scaled);
+  network.saturation = abs(network.scaled);
+  network.opacity = abs(network.scaled);
+
+  network.to.keep = (network != 0) * 1
+  if(!is.null(args$scale.weights) && args$scale.weights == T) {
+    network.scaled = network * (1 / max(abs(network)));
+
+    network.thickness = scales::rescale(x = abs(network.scaled), to = scale.range, from = thickness);
+  }
+  network.scaled = network.scaled * network.to.keep
+  network.thickness = network.thickness * network.to.keep
+
+  network.saturation = scales::rescale(x = abs(network.scaled), to = scale.range, from = saturation);
+  network.opacity = scales::rescale(x = abs(network.scaled), to = scale.range, from = opacity);
+
+  pos.inds = as.numeric(which(network.scaled >=0));
+  neg.inds = as.numeric(which(network.scaled < 0));
+
+  colors.hsv = rgb2hsv(col2rgb(colors))
+
+  if(ncol(colors.hsv) == 1) {
+    colors.hsv[[4]] = colors.hsv[1] + 0.5;
+    if(colors.hsv[4] > 1) {
+      colors.hsv[4] = colors.hsv[4] - 1;
+    }
+
+    colors.hsv[[5]] = colors.hsv[2];
+    colors.hsv[[6]] = colors.hsv[3];
+    dim(colors.hsv) = c(3,2);
+  }
+
+  mat = as.matrix(adjacency.key);
+  for (i in 1:length(network)) {
+    v0 <- nodes[node.rows==mat[1,i], ];
+    v1 <- nodes[node.rows==mat[2,i], ];
+    nodes[node.rows==mat[1,i],]$weight = nodes[node.rows==mat[1,i],]$weight + abs(network.thickness[i]);
+    nodes[node.rows==mat[2,i],]$weight = nodes[node.rows==mat[2,i],]$weight + abs(network.thickness[i]);
+
+    color = NULL
+    if(i %in% pos.inds) {
+      color = colors.hsv[,1];
+    } else {
+      color = colors.hsv[,2];
+    }
+    color[2] = network.saturation[i];
+
+    edge_shape = list(
+      type = "line",
+      opacity = network.opacity[i],
+      nodes = c(mat[,i]),
+      line = list(
+        name = "test",
+        color= hsv(color[1],color[2],color[3]),
+        width= abs(network.thickness[i]) * enaplot$get("multiplier"),
+        dash = edge_type
+      ),
+      x0 = as.numeric(v0[1]),
+      y0 = as.numeric(v0[2]),
+      x1 = as.numeric(v1[1]),
+      y1 = as.numeric(v1[2]),
+      layer = "below",
+      size = as.numeric(abs(network.scaled[i]))
+    );
+    network.edges.shapes[[i]] = edge_shape
+  };
+
+  if(thin.lines.in.front) {
+    network.edges.shapes = network.edges.shapes[rev(order(sapply(network.edges.shapes, "[[", "size")))]
+  } else {
+    network.edges.shapes = network.edges.shapes[order(sapply(network.edges.shapes, "[[", "size"))]
+  }
+
+  rows.to.keep = rep(T, nrow(nodes))
+  if(show.all.nodes == F) {
+    rows.to.keep = nodes$weight != 0
+    # nodes = nodes[rownames(nodes) %in% unique(as.character(sapply(network.edges.shapes, "[[", "nodes"))), ]
+  }
+  nodes = nodes[rows.to.keep,];
+  mode = "markers+text"
+  if(!is.null(args$labels.hide) && args$labels.hide == T) {
+    mode="markers"
+  }
+  nodes$weight = scales::rescale((nodes$weight * (1 / max(abs(nodes$weight)))), node.size) # * enaplot$get("multiplier"));
+
+  show.legend = !is.null(legend.name);
+  if(legend.include.edges) {
+    if(is.null(legend.name)) {
+      legend.name = "Nodes"
+    }
+    show.legend = T;
+  }
+
+  enaplot$plot = plotly::add_trace(
+    enaplot$plot,
+    type = "scatter",
+    data = nodes,
+    x = ~X1,
+    y = ~X2,
+    mode = mode,
+    textposition = label.offset[rows.to.keep],
+    marker = list(
+      color = "#000000",
+      size = abs(nodes$weight)
+      #,name = labels[i] #rownames(nodes)[i]
+    ),
+    textfont = list (
+      family = label.font.family,
+      size = label.font.size,
+      color = label.font.color
+    ),
+    text = labels[rows.to.keep], #rownames(nodes),
+    legendgroup = legend.name,
+    name = legend.name,
+    showlegend = show.legend,
+    hoverinfo = 'none'
+  );
+
+  if (length(network.edges.shapes) > 0 ) {
+    enaplot$plotted$networks[[length(enaplot$plotted$networks) + 1]] <- network.edges.shapes
+
+    for (n in 1:length(network.edges.shapes)) {
+      e = network.edges.shapes[[n]];
+
+      name = NULL;
+      show.legend = F;
+      this.name = paste(e$nodes[1],e$nodes[2], sep=".")
+      if(legend.include.edges) {
+        name = this.name;
+        show.legend = T;
+      }
+
+      enaplot$plot = plotly::add_trace(
+        enaplot$plot,
+        type = "scatter",
+        mode = "lines",
+        data = data.frame(X1=c(e$x0,e$x1), X2=c(e$y0,e$y1)),
+        x = ~X1, y = ~X2,
+        line = e$line,
+        opacity = e$opacity,
+        legendgroup = if(legend.include.edges == T) this.name else legend.name,
+        showlegend = show.legend,
+        name = name
+      )
+    }
+  }
+
+  enaplot
+}
+"""
+
 cohens_d = """
 """
 cohens_d = """
