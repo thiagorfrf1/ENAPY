@@ -14,6 +14,16 @@ pandas2ri.activate()
 
 lib = """
 library(data.table)
+library(Rcpp)
+library(R6)
+library(foreach)
+library(stats)
+library(plotly)
+library(doParallel)
+library(parallel)
+library(scales)
+library(magrittr)
+library(methods)
 library(rENA)
 """
 accumulate_data = """
@@ -4793,7 +4803,7 @@ opts <- list (
 
 # @title Default colors used for plotting.
 # @description Default colors for plotting
-default.colors <- c(I("blue"), I("red"))
+default.colors <- c(I("blue"), I("red"))"
 """
 RS_data = """
 #' Coded Rescushell Chat Data
@@ -6001,14 +6011,16 @@ zzz = """
 }
 """
 
+
 string1 = lws_positions_sq + cohens_d + connection_matrix + ena + ena_accumulate_data + ena_accumulate_data_file + accumulate_data
 string2 = ena_conversations + ena_correlations + ena_generate + ena_get_stats + ena_group + ena_make_set + ena_optimize_set + ena_plot + ena_plot_group + ena_plot_network
 string3 = ena_plot_points + ena_plot_subtraction + ena_plot_trajectory + ena_plotter + ena_rotate_by_mean + ena_set + ena_set_creator
 string4 = ena_svd + ena_unit_group + ena_unit_metadata + ena_update_set + ena_writeup
 string5 = namesToAdjacencyKey + ocpu_optimization + RcppExports + RS_data + utils_classes + utils_matrix + utils_plot + zzz + rENA
 string6 = ENAdata + ENAset + utils + ENAplot + ENArotation_set
+string7 = namesToAdjacencyKey + ocpu_optimization + RcppExports + RS_data + utils_classes + utils_matrix + utils_plot + zzz + rENA
 
-stringfinal = lib + string6 + string2 + string3 + string4 + string5 + string1
+stringfinal = lib + string2 + string3 + string4 + string1 + string6 + string7
 
 stringr_c = STAP(str(stringfinal), "stringr_c")
 
@@ -6018,89 +6030,41 @@ print(stringr_c._rpy2r.keys())
 
 
 # load your file
-object = ro.r['load']('RS.data.rda')
-r.data('RS.data')
-
 rsdata = r['RS.data']
 
 units = rsdata[['Condition','UserName']]
+print(units.isnull().sum())
 conversation = rsdata[['Condition','GroupName']]
+print(conversation.isnull().sum())
 codes = rsdata[['Data','Technical.Constraints','Performance.Parameters','Client.and.Consultant.Requests','Design.Reasoning','Collaboration']]
+print(codes.isnull().sum())
 meta = rsdata[["CONFIDENCE.Change","CONFIDENCE.Pre","CONFIDENCE.Post","C.Change"]]
+print(meta.isnull().sum())
 
 
-with localconverter(ro.default_converter + pandas2ri.converter):
-  r_units = ro.conversion.py2rpy(units)
-with localconverter(ro.default_converter + pandas2ri.converter):
-  r_conversation = ro.conversion.py2rpy(conversation)
-with localconverter(ro.default_converter + pandas2ri.converter):
-  r_codes = ro.conversion.py2rpy(codes)
-with localconverter(ro.default_converter + pandas2ri.converter):
-  r_meta = ro.conversion.py2rpy(meta)
 
-accum = stringr_c.ena_accumulate_data(units, conversation, codes)
 
+accum = stringr_c.ena_accumulate_data(units = units,conversation = conversation,codes = codes,metadata = meta)
 
 set = stringr_c.ena_make_set(
-  enadata=accum
+  accum
 )
+print("____________________________________--")
+print(set.names)
+
+set.rx2('connection.counts')['CONFIDENCE.Change'] = rsdata[["CONFIDENCE.Change"]]
+print(set.rx2('connection.counts'))
+
 
 points = (set.rx2('points'))
 
-
-
 df_points1 = points.loc[points['Condition'] == "FirstGame"]
-df_points2 = points.loc[points['Condition'] == "SecondGame"]
 
 
-
-
-
-first_game_points = r("as.matrix")
-second_game_points = r("as.matrix")
 ### Subset rotated points for the first condition
 first_game_points = df_points1.drop(columns=['ENA_UNIT','Condition','UserName'])
-### Subset rotated points for the second condition
-second_game_points = df_points2.drop(columns=['ENA_UNIT','Condition','UserName'])
 
+plot = stringr_c.ena_plot(set)
 
-
-print(first_game_points)
-
-
-plot = stringr_c.ena_plot(set, scale_to = "network", title = "Groups of Units")
-
-plot = stringr_c.ena_plot_points(plot, points = first_game_points, confidence_interval = "box", colors = ("blue"))
-plot = stringr_c.ena_plot_points(plot, points = second_game_points, confidence_interval = "box", colors = ("red"))
-
+plot = stringr_c.ena_plot_points(plot, points = first_game_points)
 ro.r.plot("plot")
-
-
-
-
-
-#with localconverter(ro.default_converter + pandas2ri.converter):
-#  first_game_points_numeric = ro.conversion.py2rpy(first_game_points)
-#with localconverter(ro.default_converter + pandas2ri.converter):
-#  second_game_points_numeric = ro.conversion.py2rpy(second_game_points)
-
-
-
-# plotar print(ro.r.plot("plot"))
-#plot = stringr_c.ena_plot(set, scale_to = "network", title = "Groups of Units")
-#print("first_game_points")
-#print(type(plot))
-
-#plot = stringr_c.ena_plot(set)
-
-#print(type(plot))
-
-
-#plot = stringr_c.ena_plot_points(plot, points = first_game_points);
-#plot = stringr_c.ena_plot_points(plot, points = second_game_points);
-
-#ro.r.plot("plot")
-
-#print(type(plot))
-#print(ro.r.plot("plot"))
-# antes ro.
