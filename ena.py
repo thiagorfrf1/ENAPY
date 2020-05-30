@@ -2,6 +2,7 @@
 import forecast
 import numpy
 from rpy2.robjects.packages import importr
+import time
 import rpy2.robjects as ro
 from rpy2.robjects import r, pandas2ri
 from rpy2.robjects.packages import SignatureTranslatedAnonymousPackage as STAP
@@ -15,6 +16,7 @@ pandas2ri.activate()
 lib = """
 library(data.table)
 library(rENA)
+library(magrittr)
 """
 accumulate_data = """
 accumulate.data <- function(enadata) {
@@ -6013,9 +6015,12 @@ stringfinal = lib + string6 + string2 + string3 + string4 + string5 + string1
 stringr_c = STAP(str(stringfinal), "stringr_c")
 
 print("Keys")
+pr = ro.r("print")
+colMeans = ro.r("colMeans")
+rescale = ro.r("scales::rescale")
+rmax = ro.r("max")
 
 print(stringr_c._rpy2r.keys())
-
 
 # load your file
 object = ro.r['load']('RS.data.rda')
@@ -6028,18 +6033,7 @@ conversation = rsdata[['Condition','GroupName']]
 codes = rsdata[['Data','Technical.Constraints','Performance.Parameters','Client.and.Consultant.Requests','Design.Reasoning','Collaboration']]
 meta = rsdata[["CONFIDENCE.Change","CONFIDENCE.Pre","CONFIDENCE.Post","C.Change"]]
 
-
-with localconverter(ro.default_converter + pandas2ri.converter):
-  r_units = ro.conversion.py2rpy(units)
-with localconverter(ro.default_converter + pandas2ri.converter):
-  r_conversation = ro.conversion.py2rpy(conversation)
-with localconverter(ro.default_converter + pandas2ri.converter):
-  r_codes = ro.conversion.py2rpy(codes)
-with localconverter(ro.default_converter + pandas2ri.converter):
-  r_meta = ro.conversion.py2rpy(meta)
-
-accum = stringr_c.ena_accumulate_data(units, conversation, codes)
-
+accum = stringr_c.ena_accumulate_data(units, conversation, codes, meta)
 
 set = stringr_c.ena_make_set(
   enadata=accum
@@ -6047,60 +6041,102 @@ set = stringr_c.ena_make_set(
 
 points = (set.rx2('points'))
 
-
-
 df_points1 = points.loc[points['Condition'] == "FirstGame"]
 df_points2 = points.loc[points['Condition'] == "SecondGame"]
-
-
-
-
-
-first_game_points = r("as.matrix")
-second_game_points = r("as.matrix")
 ### Subset rotated points for the first condition
-first_game_points = df_points1.drop(columns=['ENA_UNIT','Condition','UserName'])
+first_game_points = df_points1.drop(columns=['ENA_UNIT','Condition','UserName', 'CONFIDENCE.Change', 'CONFIDENCE.Pre', 'CONFIDENCE.Post', "C.Change"])
 ### Subset rotated points for the second condition
-second_game_points = df_points2.drop(columns=['ENA_UNIT','Condition','UserName'])
+second_game_points = df_points2.drop(columns=['ENA_UNIT','Condition','UserName',  'CONFIDENCE.Change', 'CONFIDENCE.Pre', 'CONFIDENCE.Post', "C.Change"])
 
 
-
-print(first_game_points)
 
 
 plot = stringr_c.ena_plot(set, scale_to = "network", title = "Groups of Units")
-
 plot = stringr_c.ena_plot_points(plot, points = first_game_points, confidence_interval = "box", colors = ("blue"))
 plot = stringr_c.ena_plot_points(plot, points = second_game_points, confidence_interval = "box", colors = ("red"))
-
-ro.r.plot("plot")
-
+pr(plot)
 
 
 
+plot = stringr_c.ena_plot(set,  scale_to = [-1,0,1],title = "Groups and Means")
+plot = stringr_c.ena_plot_points(plot, points = first_game_points, confidence_interval = "box", colors = ("blue"))
+plot = stringr_c.ena_plot_points(plot, points = second_game_points, confidence_interval = "box", colors = ("red"))
+plot = stringr_c.ena_plot_group(plot, first_game_points, colors = ("red"), confidence_interval = "box")
+plot = stringr_c.ena_plot_group(plot, second_game_points,colors =("blue"), confidence_interval = "box")
+pr(plot)
 
-#with localconverter(ro.default_converter + pandas2ri.converter):
-#  first_game_points_numeric = ro.conversion.py2rpy(first_game_points)
-#with localconverter(ro.default_converter + pandas2ri.converter):
-#  second_game_points_numeric = ro.conversion.py2rpy(second_game_points)
+line_weights = (set.rx2('line.weights'))
+
+### Subset lineweights for SecondGame and Calculate the colMeans
+first_game_lineweights = line_weights.loc[points['Condition'] == "FirstGame"]
+second_game_lineweights = line_weights.loc[points['Condition'] == "SecondGame"]
+
+first_game_lineweights = first_game_lineweights.drop(columns=['ENA_UNIT','Condition','UserName', 'CONFIDENCE.Change', 'CONFIDENCE.Pre', 'CONFIDENCE.Post', "C.Change"])
+### Subset rotated points for the second condition
+second_game_lineweights = second_game_lineweights.drop(columns=['ENA_UNIT','Condition','UserName',  'CONFIDENCE.Change', 'CONFIDENCE.Pre', 'CONFIDENCE.Post', "C.Change"])
 
 
 
-# plotar print(ro.r.plot("plot"))
-#plot = stringr_c.ena_plot(set, scale_to = "network", title = "Groups of Units")
-#print("first_game_points")
-#print(type(plot))
+first_game_mean = colMeans(first_game_lineweights)
+second_game_mean = colMeans(second_game_lineweights)
 
-#plot = stringr_c.ena_plot(set)
+### Subtract the two sets of means, resulting in a vector with negative values
+### indicatinag a stronger connection with the SecondGame, and positive values
+### a stronger FirstGame connection
+subtracted_mean = first_game_mean - second_game_mean
 
-#print(type(plot))
+#> [1]  0.0769062510 -0.0409819566  0.0204737523  0.0008708646  0.0373163091
+#Plot subtracted network only
+plot_first = stringr_c.ena_plot(set, title = "FirstGame")
+plot_first = stringr_c.ena_plot_network(plot_first, network = first_game_mean)
+pr(plot_first)
 
 
-#plot = stringr_c.ena_plot_points(plot, points = first_game_points);
-#plot = stringr_c.ena_plot_points(plot, points = second_game_points);
+plot_second = stringr_c.ena_plot(set, title = "SecondGame")
+plot_second = stringr_c.ena_plot_network(plot_second, network = second_game_mean, colors = ("blue"))
+pr(plot_second)
 
-#ro.r.plot("plot")
 
-#print(type(plot))
-#print(ro.r.plot("plot"))
-# antes ro.
+
+
+plot_sub = stringr_c.ena_plot(set, title = "Subtracted")
+plot_sub = stringr_c.ena_plot_network(plot_sub, network = subtracted_mean)
+pr(plot_sub)
+
+
+rotation = (set.rx2('rotation'))
+nodes = rotation.rx2('nodes')
+
+# Scale the nodes to match that of the network, for better viewing
+first_game_points_max = rmax(first_game_points)
+second_game_points_max = rmax(second_game_points)
+if(first_game_points_max> second_game_points_max):
+  point_max = first_game_points_max
+else:
+  point_max = second_game_points_max
+
+nodes = nodes.drop(columns=['code'])
+print("nodes")
+print(nodes)
+max_nodes = rmax(nodes)
+print("max_nodes")
+print(max_nodes)
+print("point_max")
+print(point_max)
+
+with localconverter(ro.default_converter + pandas2ri.converter):
+  first_game_points = ro.conversion.py2rpy(first_game_points)
+print(type(first_game_points))
+
+first_game_scaled = first_game_points
+second_game_scaled = second_game_points
+
+plot = stringr_c.ena_plot(set, title = "Plot with Units and Network", font_family = "Times")
+plot = stringr_c.ena_plot_points(plot, points = first_game_scaled, colors = ("red"))
+plot = stringr_c.ena_plot_points(plot, points = second_game_scaled, colors = ("blue"))
+plot = stringr_c.ena_plot_group(plot, point = first_game_scaled, colors =("red"), confidence_interval = "box")
+plot = stringr_c.ena_plot_group(plot, point = second_game_scaled, colors =("blue"), confidence_interval = "box")
+plot = stringr_c.ena_plot_network(plot, network = subtracted_mean)
+pr(plot)
+
+time.sleep(10)
