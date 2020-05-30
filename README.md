@@ -22,4 +22,4 @@ Devem ser instaladas as bibliotecas R rENA e data.table usando os comandos abaix
 ## install.packages("data.table")
 
 No python devemos instalar a biblioteca rpy2 usando o seguinte comando:
-pip install rpy2
+## pip install rpy2
