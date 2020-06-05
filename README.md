@@ -6,6 +6,11 @@
 </center>
 
 Epistemic Network Analysis (ENA) <br>
+
+(ENA) é um método para identificar e quantificar conexões entre elementos em dados codificados e representá-los em modelos dinâmicos de rede. Uma característica fundamental da ferramenta ENA é que ela permite que os pesquisadores comparem redes diferentes, visualmente e por meio de estatísticas resumidas que refletem a estrutura ponderada das conexões. A interface também permite que os usuários vejam os dados originais que contribuíram para cada uma das conexões na representação de rede. Assim, a ENA pode ser usada para abordar uma ampla gama de questões de pesquisa qualitativa e quantitativa.
+
+Os pesquisadores usaram a ENA para analisar e visualizar uma ampla gama de fenômenos, incluindo: conexões cognitivas que os alunos fazem enquanto resolvem problemas complexos; interações entre diferentes regiões do cérebro em dados de RMf; coordenação do olhar social; integração de habilidades operatórias durante procedimentos cirúrgicos; e muitos outros.
+
 https://cran.r-project.org/web/packages/rENA/rENA.pdf
 
 # Usando o rENA no python
@@ -16,7 +21,10 @@ Todas as funçoes da biblioteca podem ser chamadas usando a interface rENA, um o
 A função ena.plot() pode ser chamada usando rENA.ena_plot() <br>
 A função ena.plot.points() pode ser chamada usando rENA.ena_plot_points().
 
-# Bibliotecas necessárias:
+# Requisitos:
+Python 3.6
+
+## Bibliotecas necessárias:
 Devem ser instaladas as bibliotecas R rENA e data.table usando os comandos abaixo:
 ## install.packages("rENA")
 ## install.packages("data.table")
