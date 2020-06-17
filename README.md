@@ -16,11 +16,11 @@ https://cran.r-project.org/web/packages/rENA/rENA.pdf
 # Por que usar a biblioteca?
 Uma outra vantagem é que a biblioteca rena original está sendo usada como motor, todas as atualizações e futuras novas funções poderão ser utilizadas com a biblioteca
 
-## Instalando
+# Instalando
 
-Pip:
+## Pip:
 
-pip install enapy
+## pip install enapy
 
 # Usando o rENA no python
 O exemplo abaixo mostra como utilizar a biblioteca do R rENA com a liguagem python. Todas as bibliotecas do python podem ser usadas para mnipular e arrumar os dados para serem plotados.
@@ -32,11 +32,14 @@ A função ena.plot.points() pode ser chamada usando rENA.ena_plot_points().
 
 # Requisitos:
 Python 3.6
+
 rpy2
 
 
 R 
+
 data.table
+
 rENA
 
 ## Bibliotecas necessárias:
@@ -45,7 +48,7 @@ Devem ser instaladas as bibliotecas R rENA e data.table usando os comandos abaix
 ## install.packages("data.table")
 
 No python devemos instalar a biblioteca rpy2 usando o seguinte comando:
-## pip install rpy2
+pip install rpy2
 
 ## Exemplos
 Exemplos estão disponíveis no arquivo ena.ipynb na pasta “examples”.
