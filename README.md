@@ -52,3 +52,11 @@ pip install rpy2
 
 ## Exemplos
 Exemplos estão disponíveis no arquivo ena.ipynb na pasta “examples”.
+
+
+# Referências:
+ 
+http://www.epistemicnetwork.org/
+https://brieger.esalq.usp.br/CRAN/web/packages/rENA/vignettes/getting-started.html
+https://github.com/cran/rENA
+
