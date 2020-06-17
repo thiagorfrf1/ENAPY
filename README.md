@@ -1,4 +1,4 @@
-# rENA 
+# enapy 
 <center>
   
 ![alt text](https://github.com/thiagorfrf1/ENAPY/blob/master/ena.png)
@@ -57,6 +57,10 @@ Exemplos estão disponíveis no arquivo ena.ipynb na pasta “examples”.
 # Referências:
  
 http://www.epistemicnetwork.org/
+
+
 https://brieger.esalq.usp.br/CRAN/web/packages/rENA/vignettes/getting-started.html
+
+
 https://github.com/cran/rENA
 
