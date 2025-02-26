@@ -7,30 +7,31 @@
 
 Epistemic Network Analysis (ENA) <br>
 
-(ENA) é um método para identificar e quantificar conexões entre elementos em dados codificados e representá-los em modelos dinâmicos de rede. Uma característica fundamental da ferramenta ENA é que ela permite que os pesquisadores comparem redes diferentes, visualmente e por meio de estatísticas resumidas que refletem a estrutura ponderada das conexões. A interface também permite que os usuários vejam os dados originais que contribuíram para cada uma das conexões na representação de rede. Assim, a ENA pode ser usada para abordar uma ampla gama de questões de pesquisa qualitativa e quantitativa.
+(ENA) is a method for identifying and quantifying connections between elements in coded data and representing them in dynamic network models. A key feature of the ENA tool is that it allows researchers to compare different networks, both visually and through summary statistics that reflect the weighted structure of the connections. The interface also allows users to see the original data that contributed to each of the connections in the network representation. Thus, ENA can be used to address a wide range of qualitative and quantitative research questions.
 
-Os pesquisadores usaram a ENA para analisar e visualizar uma ampla gama de fenômenos, incluindo: conexões cognitivas que os alunos fazem enquanto resolvem problemas complexos; interações entre diferentes regiões do cérebro em dados de RMf; coordenação do olhar social; integração de habilidades operatórias durante procedimentos cirúrgicos; e muitos outros.
+Researchers have used ENA to analyze and visualize a wide range of phenomena, including: cognitive connections that students make while solving complex problems; interactions between different regions of the brain in fMRI data; coordination of social gaze; integration of operational skills during surgical procedures; and many others.
 
 https://cran.r-project.org/web/packages/rENA/rENA.pdf
 
-# Por que usar a biblioteca?
-Uma outra vantagem é que a biblioteca rena original está sendo usada como motor, todas as atualizações e futuras novas funções poderão ser utilizadas com a biblioteca
+# Why use the library?
+Another advantage is that the original rena library is being used as the engine, all updates and future new functions can be used with the library.
 
-# Instalando
+# Installing
 
 ## Pip:
 
 ## pip install enapy
 
 # Usando o enapy
-O exemplo continos na pasta example mostam como usar a biblioteca. Todas as bibliotecas do python podem ser usadas para mnipular e arrumar os dados para serem plotados.
+The example in the example folder shows how to use the library. All Python libraries can be used to manipulate and arrange data to be plotted.
 
-Todas as funçoes da biblioteca podem ser chamadas usando a interface rENA, um outro detalhe ,e que os pontos (.) devem ser substituidos por underscore (_).
-## Exemplo: 
-A função ena.plot() pode ser chamada usando rENA.ena_plot() <br>
-A função ena.plot.points() pode ser chamada usando rENA.ena_plot_points().
+All functions of the library can be called using the rENA interface, another detail is that dots (.) should be replaced by underscores (_).
+## Exemple: 
+The ena.plot() function can be called using rENA.ena_plot()
 
-# Requisitos:
+The ena.plot.points() function can be called using rENA.enaplotpoints().
+
+# Requirements:
 ## Python 3.6
 
 rpy2
@@ -42,19 +43,20 @@ data.table
 
 rENA
 
-## Bibliotecas necessárias:
-Devem ser instaladas as bibliotecas R rENA e data.table usando os comandos abaixo:
+## Necessary libraries:
+The R libraries rENA and data.table must be installed using the commands below:
 ## install.packages("rENA")
 ## install.packages("data.table")
 
-No python devemos instalar a biblioteca rpy2 usando o seguinte comando:
+In Python, we must install the rpy2 library using the following command:
+
 pip install rpy2
 
-## Exemplos
-Exemplos estão disponíveis no arquivo ena.ipynb na pasta “examples”.
+## Exemples
+Examples are available in the ena.ipynb file in the “examples” folder.
 
 
-# Referências:
+# References:
  
 http://www.epistemicnetwork.org/
 
