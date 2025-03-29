@@ -22,7 +22,7 @@ Another advantage is that the original rena library is being used as the engine,
 
 ## pip install enapy
 
-# Usando o enapy
+# Using enapy
 The example in the example folder shows how to use the library. All Python libraries can be used to manipulate and arrange data to be plotted.
 
 All functions of the library can be called using the rENA interface, another detail is that dots (.) should be replaced by underscores (_).
