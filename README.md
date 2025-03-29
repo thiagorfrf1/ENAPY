@@ -26,7 +26,7 @@ Another advantage is that the original rena library is being used as the engine,
 The example in the example folder shows how to use the library. All Python libraries can be used to manipulate and arrange data to be plotted.
 
 All functions of the library can be called using the rENA interface, another detail is that dots (.) should be replaced by underscores (_).
-## Exemple: 
+## Example: 
 The ena.plot() function can be called using rENA.ena_plot()
 
 The ena.plot.points() function can be called using rENA.enaplotpoints().
@@ -52,7 +52,7 @@ In Python, we must install the rpy2 library using the following command:
 
 pip install rpy2
 
-## Exemples
+## Examples
 Examples are available in the ena.ipynb file in the “examples” folder.
 
 
