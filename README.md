@@ -29,7 +29,7 @@ All functions of the library can be called using the rENA interface, another det
 ## Example: 
 The ena.plot() function can be called using rENA.ena_plot()
 
-The ena.plot.points() function can be called using rENA.enaplotpoints().
+The ena.plot.points() function can be called using rENA.ena_plot_points().
 
 # Requirements:
 ## Python 3.6
